@@ -1,3 +1,4 @@
+[![build status](https://secure.travis-ci.org/wdavidw/node-connect-coffee-script.png)](http://travis-ci.org/wdavidw/node-connect-coffee-script)
 # connect-coffee-script
 
 It provide a simple [Connect] middleware to serve CoffeeScript files. It is modeled after the [Stylus] middleware.
