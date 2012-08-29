@@ -34,6 +34,9 @@ module.exports = (options = {}) ->
 
     # Default dest dir to source
     dest = if options.dest then options.dest else src
+    dest = "/" + dest if dest.indexOf("/") isnt 0
+
+    baseDir = options.baseDir ? ""
 
     # Default compile callback
     options.compile ?= (str, options) ->
@@ -43,9 +46,9 @@ module.exports = (options = {}) ->
     (req, res, next) ->
         return next() if 'GET' isnt req.method and 'HEAD' isnt req.method
         pathname = url.parse(req.url).pathname
-        if /\.js$/.test pathname
-            jsPath = path.join dest, pathname
-            coffeePath = path.join src, pathname.replace '.js', '.coffee'
+        if /\.js$/.test(pathname) and pathname.indexOf(dest) is 0
+            jsPath = path.join baseDir, pathname
+            coffeePath = path.join baseDir, src, pathname[dest.length...].replace '.js', '.coffee'
 
             # Ignore ENOENT to fall through as 404
             error = (err) ->
