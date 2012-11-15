@@ -3,7 +3,7 @@
     "version": "0.0.5",
     "description": "Simple connect middleware to serve CoffeeScript files",
     "author": "David Worms <david@adaltas.com>",
-    "contributors": [ 
+    "contributors": [
         { "name": "David Worms", "email": "david@adaltas.com" }
     ],
     "engines": { "node": ">= 0.6.0" },
@@ -15,7 +15,8 @@
         "coffee-script" : "latest",
         "rimraf" : "latest",
         "mocha": "latest",
-        "should": "latest"
+        "should": "latest",
+        "underscore": "latest"
     },
     "keywords": ["connect", "express", "coffeescript"],
     "repository": {
