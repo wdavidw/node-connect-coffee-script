@@ -1,5 +1,4 @@
 coffeeScript = require 'coffee-script'
-{prettyErrorMessage} = require 'coffee-script/lib/coffee-script/helpers'
 fs = require 'fs'
 path = require 'path'
 url = require 'url'
@@ -40,9 +39,9 @@ module.exports = (options = {}) ->
     try
       coffeeScript.compile str, clone(options)
     catch err
-      # See helpers.prettyErrorMessage
+      # See helpers.syntaxErrorToString
       # err.message = "#{fileName}:#{first_line + 1}:#{first_column + 1}: error: #{error.message}"
-      err.message = prettyErrorMessage err, options.filename, str, false
+      err.message = "#{err}"
       throw err
   # Middleware
   (req, res, next) ->
@@ -52,68 +51,79 @@ module.exports = (options = {}) ->
       if options.prefix and 0 is pathname.indexOf options.prefix
         pathname = pathname.substring options.prefix.length
       jsPath = path.join dest, pathname
-      coffeePath = path.join src, pathname.replace '.js', '.coffee'
-      # Ignore ENOENT to fall through as 404
-      error = (err) ->
-        arg = if 'ENOENT' is err.code then null else err
-        next arg
-      # Compile to jsPath
-      compile = ->
-        debug 'read %s', jsPath
-        fs.readFile coffeePath, 'utf8', (err, str) ->
-          return error err if err
-          # If `options` is passed to `coffeeScript.compile` (as it is in the
-          # default `options.compile` function), `coffeeScript.compile` will
-          # put `options.filename` in error messages. Set `options.filename`!
-          options.filename = coffeePath
-          options.generatedFile = path.basename(pathname);
-          options.sourceFiles = [path.basename(pathname, '.js') + '.coffee'];
-          try
-            result = options.compile str, options, coffeePath
 
-            # when `options.sourceMap` presents, the compliation result is in
-            # the following form:
-            # {js: 'js code', v3SourceMap: 'map code', sourceMap: {...v4map object...}}
-            map = result.v3SourceMap
-            js = if map? then result.js else result
-          catch err
-            return next err
-          debug('render %s', coffeePath);
-          mkdirp path.dirname(jsPath), 0o0700, (err) ->
+      trySource = (coffeePath, next) ->
+        # Ignore ENOENT to fall through as 404
+        error = (err) ->
+          arg = if 'ENOENT' is err.code then null else err
+          next arg
+        # Compile to jsPath
+        compile = ->
+          debug 'read %s', jsPath
+          #getCode sourcePath, (err, str) ->
+          fs.readFile coffeePath, 'utf8', (err, str) ->
             return error err if err
-            if map?
-              mapFile = jsPath.replace /\.js$/, '.map'
-              mapPath = 
-                (options.sourceMapRoot ? '') + pathname.replace /\.js$/, '.map'
-              mapFooter = """
-                //# sourceMappingURL=#{mapPath}
-                //@ sourceMappingURL=#{mapPath}
-              """
-              # Special comment at the end that is required to signify to WebKit dev tools
-              # that a source map is available:
-              js = "#{js}\n\n#{mapFooter}"
-            fs.writeFile jsPath, js, 'utf8', ->
-              return next() unless map?
-              fs.writeFile mapFile, map, 'utf8', next
-      # Force compilation
-      return compile() if options.force
-      # Compare mtimes
-      fs.stat coffeePath, (err, coffeeStats) ->
-        return error err if err
-        fs.stat jsPath, (err, jsStats) ->
-          if err
-            if 'ENOENT' is err.code
-              # JS has not been compiled, compile it!
-              debug 'not found %s', jsPath
-              compile()
+            # If `options` is passed to `coffeeScript.compile` (as it is in the
+            # default `options.compile` function), `coffeeScript.compile` will
+            # put `options.filename` in error messages. Set `options.filename`!
+            options.filename = coffeePath
+            options.generatedFile = path.basename(pathname);
+            options.sourceFiles = [path.basename(pathname, '.js') + '.coffee'];
+            try
+              result = options.compile str, options, coffeePath
+
+              # when `options.sourceMap` presents, the compliation result is in
+              # the following form:
+              # {js: 'js code', v3SourceMap: 'map code', sourceMap: {...v4map object...}}
+              map = result.v3SourceMap
+              js = if map? then result.js else result
+            catch err
+              return next err
+            debug('render %s', coffeePath);
+            mkdirp path.dirname(jsPath), 0o0700, (err) ->
+              return error err if err
+              if map?
+                mapFile = jsPath.replace /\.js$/, '.map'
+                mapPath =
+                  (options.sourceMapRoot ? '') + pathname.replace /\.js$/, '.map'
+                mapFooter = """
+                  //# sourceMappingURL=#{mapPath}
+                  //@ sourceMappingURL=#{mapPath}
+                """
+                # Special comment at the end that is required to signify to WebKit dev tools
+                # that a source map is available:
+                js = "#{js}\n\n#{mapFooter}"
+              fs.writeFile jsPath, js, 'utf8', ->
+                return next() unless map?
+                fs.writeFile mapFile, map, 'utf8', next
+        # Compare mtimes
+        fs.stat coffeePath, (err, coffeeStats) ->
+          return error err if err
+          # Force compilation
+          return compile() if options.force
+          fs.stat jsPath, (err, jsStats) ->
+            if err
+              if 'ENOENT' is err.code
+                # JS has not been compiled, compile it!
+                debug 'not found %s', jsPath
+                compile()
+              else
+                next err
             else
-              next err
-          else
-            # Source has changed, compile it
-            if coffeeStats.mtime > jsStats.mtime
-              debug('modified %s', jsPath)
-              compile()
-            else
-              next()
+              # Source has changed, compile it
+              if coffeeStats.mtime > jsStats.mtime
+                debug('modified %s', jsPath)
+                compile()
+              else
+                next()
+
+      sourcePath = path.join src, path.dirname pathname
+      potentialSources = (path.join sourcePath, path.basename(pathname, '.js') + ext for ext in coffeeScript.FILE_EXTENSIONS)
+
+      remaining = potentialSources.length
+      for potential in potentialSources
+        trySource potential, (err) ->
+          remaining--
+          next err if remaining is 0
     else
       next()

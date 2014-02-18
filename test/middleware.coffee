@@ -22,6 +22,24 @@ describe 'middleware', ->
           content.should.eql "(function() {\n  alert(\'welcome\');\n\n}).call(this);\n"
           next()
 
+  it 'should compile a litcoffee file', (next) ->
+    rimraf "#{__dirname}/../sample/public", (err) ->
+      options =
+        src: "#{__dirname}/litcoffee/view"
+        dest: "#{__dirname}/litcoffee/public"
+        #force: true
+      req =
+        url: 'http://localhost/test.js'
+        method: 'GET'
+      res = {}
+      middleware(options) req, res, (err) ->
+        return next err if err
+        fs.readFile "#{__dirname}/litcoffee/public/test.js", 'utf8', (err, content) ->
+          should.not.exist err
+          content.should.eql "(function() {\n  alert(\'welcome\');\n\n}).call(this);\n"
+          fs.unlink "#{__dirname}/litcoffee/public/test.js"
+          next()
+
   it 'should compile with force option', (next) ->
     rimraf "#{__dirname}/../sample/public", (err) ->
       options =
@@ -121,6 +139,8 @@ describe 'middleware', ->
           next()
 
   it 'should show filename on error', (next) ->
+    process.env.NODE_DISABLE_COLORS = true
+
     rimraf "#{__dirname}/../sample/public", (err) ->
       options =
         src: "#{__dirname}/error/view"

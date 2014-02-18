@@ -14,7 +14,7 @@
   ],
   "engines": { "node": ">= 0.6.0" },
   "dependencies" : {
-    "coffee-script" : "~1.6",
+    "coffee-script" : "~1.7",
     "debug" : "~0.7",
     "mkdirp": "~0.3"
   },
